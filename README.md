@@ -1,1 +1,1203 @@
-# Gest-o
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Unificado de TI & Estoque</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for table */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #ffffff;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #777777;
+        }
+        .fade-in {
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        .dark-surface .text-slate-900:not([class*="bg-"]),
+        .dark-surface .text-slate-800:not([class*="bg-"]),
+        .dark-surface .text-slate-700:not([class*="bg-"]),
+        .dark-surface .text-slate-600:not([class*="bg-"]) {
+            color: #f8fafc;
+        }
+        .dark-surface .text-slate-500:not([class*="bg-"]) {
+            color: #d1d5db;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-[#588157] text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Navbar / Header -->
+    <header class="dark-surface bg-[#344E41] border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <img src="https://raichu-uploads.s3.amazonaws.com/logo_meireles-e-freitas-cobranca-digital_RRmnzm.png"
+                    alt="Ícone da Gestão Unificada de TI" class="w-10 h-10 rounded-xl object-cover shadow-sm">
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">Gestão Unificada de TI</h1>
+                    <p class="text-xs text-slate-500 hidden sm:block">Periféricos, Headsets e Movimentação de Patrimônio</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button onclick="exportToCSV()" class="inline-flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition shadow-sm" title="Baixar planilha CSV">
+                    <i data-lucide="download" class="w-4 h-4 text-emerald-600"></i>
+                    <span class="hidden sm:inline">Exportar CSV</span>
+                </button>
+                <div class="relative group">
+                    <button onclick="toggleMenuDropdown()" id="menuBtn" class="inline-flex items-center justify-center p-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition" title="Opções de Dados">
+                        <i data-lucide="more-vertical" class="w-5 h-5"></i>
+                    </button>
+                    <div id="menuDropdown" class="dark-surface hidden absolute right-0 mt-2 w-56 bg-[#344E41] rounded-xl shadow-lg border border-slate-200 py-1.5 z-50">
+                        <button onclick="openResetModal()" class="w-full text-left px-4 py-2.5 text-sm text-amber-700 hover:bg-amber-50 flex items-center gap-2">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                            Restaurar dados iniciais
+                        </button>
+                        <button onclick="openClearAllModal()" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            Limpar todo o histórico
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Dashboard Summary Cards -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div class="dark-surface bg-[#344E41] p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs sm:text-sm font-medium text-slate-500">Total de Registros</p>
+                    <p id="statTotalRecords" class="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">0</p>
+                </div>
+                <div class="p-3 bg-slate-100 text-slate-600 rounded-xl">
+                    <i data-lucide="clipboard-list" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <div class="dark-surface bg-[#344E41] p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs sm:text-sm font-medium text-slate-500">Periféricos (Unid.)</p>
+                    <p id="statPeripherals" class="text-2xl sm:text-3xl font-bold text-blue-600 mt-1">0</p>
+                </div>
+                <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                    <i data-lucide="mouse" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <div class="dark-surface bg-[#344E41] p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs sm:text-sm font-medium text-slate-500">Headsets Retirados</p>
+                    <p id="statHeadsets" class="text-2xl sm:text-3xl font-bold text-purple-600 mt-1">0</p>
+                </div>
+                <div class="p-3 bg-purple-50 text-purple-600 rounded-xl">
+                    <i data-lucide="headphones" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <div class="dark-surface bg-[#344E41] p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs sm:text-sm font-medium text-slate-500">Patrimônio (Mov.)</p>
+                    <p id="statAssets" class="text-2xl sm:text-3xl font-bold text-emerald-600 mt-1">0</p>
+                </div>
+                <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <i data-lucide="monitor" class="w-6 h-6"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Unified Form Section -->
+        <section class="dark-surface bg-[#344E41] rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="dark-surface border-b border-slate-200 bg-[#344E41] px-4 sm:px-6 py-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-brand-600"></i>
+                            Novo Lançamento Unificado
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Selecione a categoria do formulário abaixo para registrar</p>
+                    </div>
+
+                    <!-- Form Type Selector Tabs -->
+                    <div class="grid grid-cols-3 gap-1.5 bg-[#344E41] p-1 rounded-xl">
+                        <button type="button" onclick="selectFormType('periferico')" id="tab-periferico" class="tab-btn flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition bg-white text-blue-700 shadow-sm">
+                            <i data-lucide="keyboard" class="w-4 h-4"></i>
+                            <span>1. Periféricos</span>
+                        </button>
+                        <button type="button" onclick="selectFormType('headset')" id="tab-headset" class="tab-btn flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
+                            <i data-lucide="headphones" class="w-4 h-4"></i>
+                            <span>2. Headsets</span>
+                        </button>
+                        <button type="button" onclick="selectFormType('patrimonio')" id="tab-patrimonio" class="tab-btn flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
+                            <i data-lucide="laptop" class="w-4 h-4"></i>
+                            <span>3. Patrimônio</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Form Content -->
+            <form id="unifiedForm" onsubmit="handleFormSubmit(event)" class="p-4 sm:p-6">
+                <input type="hidden" id="formCategory" value="periferico">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+                    
+                    <!-- Data / Hora (Always visible) -->
+                    <div class="lg:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Carimbo Data/Hora
+                        </label>
+                        <div class="relative flex items-center">
+                            <input type="text" id="inputTimestamp" required placeholder="DD/MM/AAAA HH:mm:ss"
+                                class="w-full pl-3 pr-9 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white transition">
+                            <button type="button" onclick="setNowTimestamp('inputTimestamp')" title="Atualizar para agora"
+                                class="absolute right-2 p-1 text-slate-400 hover:text-brand-600 rounded-lg transition">
+                                <i data-lucide="clock" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- FORM 1: PERIFÉRICOS -->
+                    <div id="fields-periferico" class="lg:col-span-10 grid grid-cols-1 sm:grid-cols-3 gap-4 fade-in">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Item Entregue? *
+                            </label>
+                            <input type="text" id="p_item" list="list-perifericos" placeholder="Ex: Mouse, Teclado, Cabo VGA..."
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Quem Recebeu? *
+                            </label>
+                            <input type="text" id="p_person" list="list-pessoas" placeholder="Ex: DAVID, ANNE, JONAS..."
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm uppercase focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Quantidade *
+                            </label>
+                            <input type="number" id="p_qty" min="1" value="1"
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        </div>
+                    </div>
+
+                    <!-- FORM 2: HEADSETS -->
+                    <div id="fields-headset" class="hidden lg:col-span-10 grid grid-cols-1 sm:grid-cols-3 gap-4 fade-in">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Quem Recebeu os Headsets? *
+                            </label>
+                            <input type="text" id="h_person" list="list-pessoas" placeholder="Ex: ANNE, JONATHAN, FABRICIO..."
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm uppercase focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Quantas Unds Saiu? *
+                            </label>
+                            <input type="number" id="h_qty" min="1" value="1"
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition">
+                        </div>
+                        <div>
+                           
+                        </div>
+                    </div>
+
+                    <!-- FORM 3: PATRIMÔNIO / EQUIPAMENTOS -->
+                    <div id="fields-patrimonio" class="hidden lg:col-span-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 fade-in">
+                        <div class="lg:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Equipamento *
+                            </label>
+                            <input type="text" id="a_item" list="list-equipamentos" placeholder="Desktop, Notebook..."
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                        </div>
+                        <div class="lg:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Patrimônio *
+                            </label>
+                            <input type="text" id="a_assetId" placeholder="Ex: 23121, 377 lotus"
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                        </div>
+                        <div class="lg:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Fornecedor
+                            </label>
+                            <input type="text" id="a_supplier" list="list-fornecedores" placeholder="Ex: 4tech, lotus, CSI"
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                        </div>
+                        <div class="lg:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Rotação *
+                            </label>
+                            <select id="a_rotation"
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                                <option value="saida do item">Saída do item</option>
+                                <option value="entrada do item">Entrada do item</option>
+                            </select>
+                        </div>
+                        <div class="lg:col-span-1">
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Qtd *
+                            </label>
+                            <input type="number" id="a_qty" min="1" value="1"
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                        </div>
+                        <div class="lg:col-span-3">
+                            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Nome da Pessoa *
+                            </label>
+                            <input type="text" id="a_person" list="list-pessoas" placeholder="Ex: JONATHAN, Rubens..."
+                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Submit Action Bar -->
+                <div class="mt-5 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <p id="formHelperText" class="text-xs text-slate-500">
+                        Registrando entrega rápida de periféricos ou cabos avulsos.
+                    </p>
+                    <button type="submit" id="submitBtn"
+                        class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl shadow-sm transition cursor-pointer">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>Salvar Lançamento</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Datalists for Smart Autocomplete -->
+        <datalist id="list-perifericos">
+            <option value="Teclado">
+            <option value="Mouse">
+            <option value="Cabo VGA">
+            <option value="Cabo de força">
+            <option value="Cabo HDMI">
+            <option value="Cabo de Rede">
+            <option value="Mousepad">
+            <option value="Fonte">
+        </datalist>
+        <datalist id="list-equipamentos">
+            <option value="Desktop">
+            <option value="Notebook">
+            <option value="Monitor">
+            <option value="Nobreak">
+            <option value="Impressora">
+        </datalist>
+        <datalist id="list-pessoas">
+            <option value="DAVID">
+            <option value="ANNE">
+            <option value="JONAS">
+            <option value="JONATHAN">
+            <option value="FABRICIO">
+            <option value="Dalcilene">
+            <option value="welber">
+            <option value="Rubens">
+        </datalist>
+        <datalist id="list-fornecedores">
+            <option value="4tech">
+            <option value="lotus">
+            <option value="CSI">
+        </datalist>
+        <datalist id="list-extras">
+            <option value="NÃO">
+            <option value="Espuma de headset">
+            <option value="Adaptador USB">
+        </datalist>
+
+        <div class="flex justify-end">
+            <button type="button" id="historyToggleButton" onclick="toggleHistory()"
+                aria-controls="historySection" aria-expanded="false"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-[#344E41] hover:bg-[#3f5e4e] text-white text-sm font-semibold rounded-xl shadow-sm transition">
+                <i data-lucide="history" class="w-4 h-4"></i>
+                <span>Exibir histórico</span>
+            </button>
+        </div>
+
+        <!-- Unified History Section -->
+        <section id="historySection" class="hidden dark-surface bg-[#344E41] rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <!-- Header & Filters -->
+            <div class="p-4 sm:p-6 border-b border-slate-200 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <i data-lucide="history" class="w-5 h-5 text-brand-600"></i>
+                            Histórico Unificado de Registros
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Visualize, pesquise, edite ou duplique qualquer lançamento anterior</p>
+                    </div>
+                    <div class="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg self-start sm:self-auto">
+                        Exibindo <span id="filteredCount" class="font-bold text-slate-800">0</span> registros
+                    </div>
+                </div>
+
+                <!-- Filter Controls -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+                    <!-- Search -->
+                    <div class="lg:col-span-5 relative">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                        <input type="text" id="searchInput" oninput="renderHistory()"
+                            placeholder="Buscar por pessoa, item, patrimônio..."
+                            class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                    </div>
+
+                    <!-- Category Filter -->
+                    <div class="lg:col-span-3">
+                        <select id="filterCategory" onchange="renderHistory()"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                            <option value="all">Todas as Categorias</option>
+                            <option value="periferico">1. Periféricos / Itens</option>
+                            <option value="headset">2. Saída de Headsets</option>
+                            <option value="patrimonio">3. Equipamentos / Patrimônio</option>
+                        </select>
+                    </div>
+
+                    <!-- Rotation / Type Filter -->
+                    <div class="lg:col-span-2">
+                        <select id="filterRotation" onchange="renderHistory()"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                            <option value="all">Todas Movimentações</option>
+                            <option value="saida">Saídas / Entregas</option>
+                            <option value="entrada">Entradas / Devoluções</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Filter -->
+                    <div class="lg:col-span-2 relative">
+                        <input type="text" id="filterDate" oninput="renderHistory()" placeholder="Data (ex: 16/11/2026)"
+                            class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Responsive Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/90 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                            <th class="py-3.5 px-4">Data / Hora</th>
+                            <th class="py-3.5 px-4">Formulário</th>
+                            <th class="py-3.5 px-4">Item / Equipamento</th>
+                            <th class="py-3.5 px-4">Patrimônio / Detalhes</th>
+                            <th class="py-3.5 px-4">Movimentação</th>
+                            <th class="py-3.5 px-4 text-center">Qtd</th>
+                            <th class="py-3.5 px-4">Pessoa / Recebedor</th>
+                            <th class="py-3.5 px-4 text-right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="divide-y divide-slate-200 text-sm">
+                        <!-- Rows populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden py-12 px-4 text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 text-slate-400 mb-3">
+                    <i data-lucide="inbox" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-sm font-semibold text-slate-900">Nenhum registro encontrado</h3>
+                <p class="text-xs text-slate-500 mt-1">Tente ajustar os filtros de busca ou adicione um novo lançamento acima.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="dark-surface bg-[#344E41] border-t border-slate-200 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+            <p>Sistema Unificado de Controle de Inventário & TI • Armazenamento Local Automático</p>
+            <p>Dados sincronizados no navegador</p>
+        </div>
+    </footer>
+
+    <!-- EDIT MODAL -->
+    <div id="editModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="dark-surface bg-[#344E41] rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden fade-in">
+            <div class="dark-surface px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-[#344E41]">
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="edit-3" class="w-5 h-5 text-brand-600"></i>
+                    Editar Registro
+                </h3>
+                <button onclick="closeEditModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="editForm" onsubmit="saveEditedRecord(event)" class="p-6 space-y-4">
+                <input type="hidden" id="editId">
+                <input type="hidden" id="editCategory">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Carimbo Data/Hora</label>
+                        <input type="text" id="editTimestamp" required
+                            class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Categoria</label>
+                        <input type="text" id="editCategoryLabel" disabled
+                            class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600 font-medium">
+                    </div>
+                </div>
+
+                <!-- Dynamic Edit Fields -->
+                <div id="editDynamicFields" class="space-y-4">
+                    <!-- Injected via JS based on category -->
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <button type="button" onclick="closeEditModal()"
+                        class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                        class="px-5 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition">
+                        Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CONFIRMATION MODAL (Delete / Reset / Clear) -->
+    <div id="confirmModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="dark-surface bg-[#344E41] rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 fade-in">
+            <div class="flex items-start gap-4">
+                <div id="confirmIconBg" class="p-3 rounded-full bg-red-100 text-red-600 shrink-0">
+                    <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 id="confirmTitle" class="text-base font-bold text-slate-900">Confirmar exclusão</h3>
+                    <p id="confirmMessage" class="text-sm text-slate-600 mt-1">Tem certeza que deseja excluir este registro?</p>
+                </div>
+            </div>
+            <div class="mt-6 flex items-center justify-end gap-2">
+                <button onclick="closeConfirmModal()"
+                    class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                    Cancelar
+                </button>
+                <button id="confirmActionBtn"
+                    class="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm transition">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium">
+            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>
+            <span id="toastMessage">Operação realizada com sucesso!</span>
+        </div>
+    </div>
+
+    <script>
+        // Storage Key
+        const STORAGE_KEY = 'ti_unified_inventory_v1';
+        const RECORDS_CLEARED_KEY = 'ti_unified_inventory_records_cleared_v1';
+
+        // Initial Pre-populated Data from User's 3 Forms
+        const INITIAL_DATA = [
+            // Form 1: Periféricos
+            { id: 'f1-1', category: 'periferico', timestamp: '16/11/2026 10:50:29', item: 'teclado', person: 'DAVID', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
+            { id: 'f1-2', category: 'periferico', timestamp: '16/11/2026 10:50:37', item: 'mouse', person: 'DAVID', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
+            { id: 'f1-3', category: 'periferico', timestamp: '16/11/2026 10:50:49', item: 'mouse', person: 'ANNE', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
+            { id: 'f1-4', category: 'periferico', timestamp: '16/11/2026 10:51:00', item: 'Cabo Vga', person: 'ANNE', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
+            { id: 'f1-5', category: 'periferico', timestamp: '16/11/2026 10:51:12', item: 'mouse', person: 'ANNE', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
+            { id: 'f1-6', category: 'periferico', timestamp: '16/11/2026 10:51:24', item: 'cabo de força', person: 'ANNE', qty: 2, extra: '', assetId: '', rotation: 'saida do item' },
+            { id: 'f1-7', category: 'periferico', timestamp: '16/11/2026 10:51:41', item: 'mouse', person: 'JONAS', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
+
+            // Form 2: Saída de Headsets
+            { id: 'f2-1', category: 'headset', timestamp: '11/11/2026 16:31:30', item: 'Headset', person: 'ANNE', qty: 1, extra: 'n', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-2', category: 'headset', timestamp: '11/11/2026 17:34:57', item: 'Headset', person: 'JONATHAN', qty: 2, extra: 'n', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-3', category: 'headset', timestamp: '12/11/2026 08:52:26', item: 'Headset', person: 'ANNE', qty: 2, extra: 'n', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-4', category: 'headset', timestamp: '12/11/2026 09:34:35', item: 'Headset', person: 'JONATHAN', qty: 2, extra: 'n', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-5', category: 'headset', timestamp: '12/11/2026 11:39:15', item: 'Headset', person: 'FABRICIO', qty: 3, extra: 'n', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-6', category: 'headset', timestamp: '12/11/2026 16:01:10', item: 'Headset', person: 'JONATHAN', qty: 2, extra: 'NÃO', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-7', category: 'headset', timestamp: '13/11/2026 10:32:25', item: 'Headset', person: 'ANNE', qty: 1, extra: 'n', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-8', category: 'headset', timestamp: '13/11/2026 14:07:31', item: 'Headset', person: 'ANNE', qty: 1, extra: 'NÃO', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-9', category: 'headset', timestamp: '13/11/2026 14:07:40', item: 'Headset', person: 'DAVID', qty: 1, extra: 'NÃO', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-10', category: 'headset', timestamp: '13/11/2026 16:22:09', item: 'Headset', person: 'ANNE', qty: 1, extra: 'n', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-11', category: 'headset', timestamp: '16/11/2026 10:40:29', item: 'Headset', person: 'JONATHAN', qty: 3, extra: 'n', assetId: '', rotation: 'saida do item' },
+            { id: 'f2-12', category: 'headset', timestamp: '16/11/2026 11:11:48', item: 'Headset', person: 'DAVID', qty: 1, extra: 'NÃO', assetId: '', rotation: 'saida do item' },
+
+            // Form 3: Movimentação de Equipamentos / Patrimônio
+            { id: 'f3-1', category: 'patrimonio', timestamp: '11/11/2026 15:20:00', item: 'Desktop', person: 'JONATHAN', qty: 1, extra: '', assetId: '23121', rotation: 'entrada do item' },
+            { id: 'f3-2', category: 'patrimonio', timestamp: '11/11/2026 15:20:15', item: 'Desktop', person: 'JONATHAN', qty: 1, extra: '', assetId: '23414', rotation: 'saida do item' },
+            { id: 'f3-3', category: 'patrimonio', timestamp: '12/11/2026 10:33:25', item: 'Notebook', person: 'Dalcilene', qty: 1, extra: '', assetId: '377 lotus', rotation: 'saida do item' },
+            { id: 'f3-4', category: 'patrimonio', timestamp: '12/11/2026 11:01:49', item: 'Notebook', person: 'welber', qty: 1, extra: '', assetId: '1613', rotation: 'saida do item' },
+            { id: 'f3-5', category: 'patrimonio', timestamp: '13/11/2026 08:18:53', item: 'Desktop', person: 'Rubens', qty: 1, extra: '', assetId: '20787', rotation: 'saida do item' },
+            { id: 'f3-6', category: 'patrimonio', timestamp: '13/11/2026 08:19:13', item: 'Monitor', person: 'rubens', qty: 1, extra: '', assetId: '21259', rotation: 'saida do item' },
+            { id: 'f3-7', category: 'patrimonio', timestamp: '16/11/2026 10:57:13', item: 'Monitor', person: 'david', qty: 1, extra: '', assetId: '22265', rotation: 'entrada do item' }
+        ];
+
+        let records = [];
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRecords();
+            setNowTimestamp('inputTimestamp');
+            updateDatalists();
+            renderAll();
+            lucide.createIcons();
+
+            // Close dropdown on outside click
+            document.addEventListener('click', (e) => {
+                const menuBtn = document.getElementById('menuBtn');
+                const dropdown = document.getElementById('menuDropdown');
+                if (!menuBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        });
+
+        // Clear existing records once, then load the local history.
+        function loadRecords() {
+            if (!localStorage.getItem(RECORDS_CLEARED_KEY)) {
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.setItem(RECORDS_CLEARED_KEY, 'true');
+            }
+
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    records = JSON.parse(saved);
+                } catch (e) {
+                    records = [];
+                    saveRecords();
+                }
+            } else {
+                records = [];
+                saveRecords();
+            }
+        }
+
+        function saveRecords() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+            updateDatalists();
+        }
+
+        // Format Current Date/Time as DD/MM/YYYY HH:mm:ss
+        function getFormattedNow() {
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        }
+
+        function setNowTimestamp(inputId) {
+            document.getElementById(inputId).value = getFormattedNow();
+        }
+
+        // Parse DD/MM/YYYY HH:mm:ss to Date object for sorting
+        function parseBrDate(str) {
+            if (!str) return 0;
+            const parts = str.trim().split(' ');
+            const dateParts = parts[0].split('/');
+            if (dateParts.length !== 3) return 0;
+            const timeParts = (parts[1] || '00:00:00').split(':');
+            return new Date(
+                parseInt(dateParts[2], 10),
+                parseInt(dateParts[1], 10) - 1,
+                parseInt(dateParts[0], 10),
+                parseInt(timeParts[0] || 0, 10),
+                parseInt(timeParts[1] || 0, 10),
+                parseInt(timeParts[2] || 0, 10)
+            ).getTime();
+        }
+
+        // Switch Form Tabs
+        function selectFormType(type) {
+            document.getElementById('formCategory').value = type;
+
+            // Update Tab Styles
+            const tabs = {
+                periferico: { btn: 'tab-periferico', activeClass: 'bg-white text-blue-700 shadow-sm font-semibold', btnColor: 'bg-blue-600 hover:bg-blue-700', helper: 'Registrando entrega rápida de periféricos ou cabos avulsos.' },
+                headset: { btn: 'tab-headset', activeClass: 'bg-white text-purple-700 shadow-sm font-semibold', btnColor: 'bg-purple-600 hover:bg-purple-700', helper: 'Registrando saída de headsets e itens complementares.' },
+                patrimonio: { btn: 'tab-patrimonio', activeClass: 'bg-white text-emerald-700 shadow-sm font-semibold', btnColor: 'bg-emerald-600 hover:bg-emerald-700', helper: 'Registrando entrada ou saída de equipamentos com número de patrimônio.' }
+            };
+
+            Object.keys(tabs).forEach(key => {
+                const btn = document.getElementById(tabs[key].btn);
+                const fields = document.getElementById(`fields-${key}`);
+                if (key === type) {
+                    btn.className = `tab-btn flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm rounded-lg transition ${tabs[key].activeClass}`;
+                    fields.classList.remove('hidden');
+                } else {
+                    btn.className = 'tab-btn flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-slate-600 hover:text-slate-900';
+                    fields.classList.add('hidden');
+                }
+            });
+
+            // Update Submit Button Color & Helper Text
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.className = `w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 text-white font-semibold text-sm rounded-xl shadow-sm transition cursor-pointer ${tabs[type].btnColor}`;
+            document.getElementById('formHelperText').textContent = tabs[type].helper;
+
+            setNowTimestamp('inputTimestamp');
+        }
+
+        // Handle New Entry Submission
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const category = document.getElementById('formCategory').value;
+            const timestamp = document.getElementById('inputTimestamp').value.trim() || getFormattedNow();
+
+            let newRecord = {
+                id: 'rec-' + Date.now(),
+                category,
+                timestamp,
+                item: '',
+                person: '',
+                qty: 1,
+                extra: '',
+                assetId: '',
+                supplier: '',
+                rotation: 'saida do item'
+            };
+
+            if (category === 'periferico') {
+                const item = document.getElementById('p_item').value.trim();
+                const person = document.getElementById('p_person').value.trim();
+                const qty = parseInt(document.getElementById('p_qty').value, 10) || 1;
+                if (!item || !person) {
+                    showToast('Preencha o item e quem recebeu!', true);
+                    return;
+                }
+                newRecord.item = item;
+                newRecord.person = person;
+                newRecord.qty = qty;
+
+                // Clear fields
+                document.getElementById('p_item').value = '';
+                document.getElementById('p_person').value = '';
+                document.getElementById('p_qty').value = 1;
+            } else if (category === 'headset') {
+                const person = document.getElementById('h_person').value.trim();
+                const qty = parseInt(document.getElementById('h_qty').value, 10) || 1;
+                const extra = document.getElementById('h_extra').value.trim() || 'NÃO';
+                if (!person) {
+                    showToast('Informe quem recebeu os headsets!', true);
+                    return;
+                }
+                newRecord.item = 'Headset';
+                newRecord.person = person;
+                newRecord.qty = qty;
+                newRecord.extra = extra;
+
+                // Clear fields
+                document.getElementById('h_person').value = '';
+                document.getElementById('h_qty').value = 1;
+                document.getElementById('h_extra').value = 'NÃO';
+            } else if (category === 'patrimonio') {
+                const item = document.getElementById('a_item').value.trim();
+                const assetId = document.getElementById('a_assetId').value.trim();
+                const supplier = document.getElementById('a_supplier').value.trim();
+                const rotation = document.getElementById('a_rotation').value;
+                const qty = parseInt(document.getElementById('a_qty').value, 10) || 1;
+                const person = document.getElementById('a_person').value.trim();
+                if (!item || !assetId || !person) {
+                    showToast('Preencha equipamento, patrimônio e nome da pessoa!', true);
+                    return;
+                }
+                newRecord.item = item;
+                newRecord.assetId = assetId;
+                newRecord.supplier = supplier;
+                newRecord.rotation = rotation;
+                newRecord.qty = qty;
+                newRecord.person = person;
+
+                // Clear fields
+                document.getElementById('a_item').value = '';
+                document.getElementById('a_assetId').value = '';
+                document.getElementById('a_supplier').value = '';
+                document.getElementById('a_qty').value = 1;
+                document.getElementById('a_person').value = '';
+            }
+
+            records.unshift(newRecord);
+            saveRecords();
+            setNowTimestamp('inputTimestamp');
+            renderAll();
+            showToast('Lançamento registrado com sucesso!');
+        }
+
+        // Update Datalists dynamically with user entries
+        function updateDatalists() {
+            const peopleSet = new Set(['DAVID', 'ANNE', 'JONAS', 'JONATHAN', 'FABRICIO', 'Dalcilene', 'welber', 'Rubens']);
+            const periphSet = new Set(['Teclado', 'Mouse', 'Cabo VGA', 'Cabo de força', 'Cabo HDMI', 'Cabo de Rede']);
+            const equipSet = new Set(['Desktop', 'Notebook', 'Monitor', 'Nobreak']);
+
+            records.forEach(r => {
+                if (r.person) peopleSet.add(r.person.trim());
+                if (r.category === 'periferico' && r.item) periphSet.add(r.item.trim());
+                if (r.category === 'patrimonio' && r.item) equipSet.add(r.item.trim());
+            });
+
+            document.getElementById('list-pessoas').innerHTML = Array.from(peopleSet).map(v => `<option value="${escapeHtml(v)}">`).join('');
+            document.getElementById('list-perifericos').innerHTML = Array.from(periphSet).map(v => `<option value="${escapeHtml(v)}">`).join('');
+            document.getElementById('list-equipamentos').innerHTML = Array.from(equipSet).map(v => `<option value="${escapeHtml(v)}">`).join('');
+        }
+
+        // Render Dashboard & Table
+        function renderAll() {
+            updateStats();
+            renderHistory();
+        }
+
+        function updateStats() {
+            document.getElementById('statTotalRecords').textContent = records.length;
+
+            const periphSum = records
+                .filter(r => r.category === 'periferico')
+                .reduce((acc, r) => acc + (Number(r.qty) || 0), 0);
+            document.getElementById('statPeripherals').textContent = periphSum;
+
+            const headsetSum = records
+                .filter(r => r.category === 'headset')
+                .reduce((acc, r) => acc + (Number(r.qty) || 0), 0);
+            document.getElementById('statHeadsets').textContent = headsetSum;
+
+            const assetCount = records.filter(r => r.category === 'patrimonio').length;
+            document.getElementById('statAssets').textContent = assetCount;
+        }
+
+        function renderHistory() {
+            const search = document.getElementById('searchInput').value.toLowerCase().trim();
+            const catFilter = document.getElementById('filterCategory').value;
+            const rotFilter = document.getElementById('filterRotation').value;
+            const dateFilter = document.getElementById('filterDate').value.trim();
+
+            // Sort descending by timestamp
+            const sorted = [...records].sort((a, b) => parseBrDate(b.timestamp) - parseBrDate(a.timestamp));
+
+            const filtered = sorted.filter(r => {
+                if (catFilter !== 'all' && r.category !== catFilter) return false;
+                if (dateFilter && !r.timestamp.includes(dateFilter)) return false;
+
+                if (rotFilter !== 'all') {
+                    const isEntry = r.rotation && r.rotation.toLowerCase().includes('entrada');
+                    if (rotFilter === 'entrada' && !isEntry) return false;
+                    if (rotFilter === 'saida' && isEntry) return false;
+                }
+
+                if (search) {
+                    const blob = `${r.timestamp} ${r.item} ${r.person} ${r.assetId} ${r.extra} ${r.rotation}`.toLowerCase();
+                    if (!blob.includes(search)) return false;
+                }
+
+                return true;
+            });
+
+            document.getElementById('filteredCount').textContent = filtered.length;
+
+            const tbody = document.getElementById('historyTableBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            tbody.innerHTML = filtered.map(r => {
+                // Category Badge
+                let catBadge = '';
+                if (r.category === 'periferico') {
+                    catBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">Periférico</span>`;
+                } else if (r.category === 'headset') {
+                    catBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">Headset</span>`;
+                } else {
+                    catBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">Patrimônio</span>`;
+                }
+
+                // Details / Patrimônio column
+                let detailHtml = '<span class="text-slate-400 text-xs">—</span>';
+                if (r.category === 'patrimonio' && r.assetId) {
+                    detailHtml = `<span class="inline-flex flex-col gap-0.5">
+                        <span class="font-mono text-xs font-semibold bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">Pat: ${escapeHtml(r.assetId)}</span>
+                        ${r.supplier ? `<span class="text-xs text-slate-600">Fornecedor: ${escapeHtml(r.supplier)}</span>` : ''}
+                    </span>`;
+                } else if (r.category === 'headset' && r.extra) {
+                    const isNo = ['n', 'não', 'nao'].includes(r.extra.toLowerCase());
+                    detailHtml = isNo
+                        ? `<span class="text-xs text-slate-400">Extra: Não</span>`
+                        : `<span class="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">+ ${escapeHtml(r.extra)}</span>`;
+                }
+
+                // Rotation Badge
+                const isEntry = r.rotation && r.rotation.toLowerCase().includes('entrada');
+                const rotBadge = isEntry
+                    ? `<span class="inline-flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md"><i data-lucide="arrow-down-left" class="w-3.5 h-3.5"></i> Entrada</span>`
+                    : `<span class="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md"><i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i> Saída</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-50/90 transition group">
+                        <td class="py-3 px-4 whitespace-nowrap text-xs text-slate-600 font-mono">${escapeHtml(r.timestamp)}</td>
+                        <td class="py-3 px-4 whitespace-nowrap">${catBadge}</td>
+                        <td class="py-3 px-4 font-medium text-slate-900">${escapeHtml(r.item)}</td>
+                        <td class="py-3 px-4 whitespace-nowrap">${detailHtml}</td>
+                        <td class="py-3 px-4 whitespace-nowrap">${rotBadge}</td>
+                        <td class="py-3 px-4 text-center font-bold text-slate-800">${r.qty}</td>
+                        <td class="py-3 px-4 font-medium text-slate-800">${escapeHtml(r.person)}</td>
+                        <td class="py-3 px-4 whitespace-nowrap text-right">
+                            <div class="inline-flex items-center gap-1">
+                                <button onclick="duplicateRecord('${r.id}')" title="Reutilizar / Duplicar para novo lançamento"
+                                    class="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition">
+                                    <i data-lucide="copy-plus" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="openEditModal('${r.id}')" title="Editar registro"
+                                    class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="confirmDelete('${r.id}')" title="Excluir registro"
+                                    class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        // Duplicate Record into Form for Fast Entry
+        function duplicateRecord(id) {
+            const rec = records.find(r => r.id === id);
+            if (!rec) return;
+
+            selectFormType(rec.category);
+            setNowTimestamp('inputTimestamp');
+
+            if (rec.category === 'periferico') {
+                document.getElementById('p_item').value = rec.item;
+                document.getElementById('p_person').value = rec.person;
+                document.getElementById('p_qty').value = rec.qty;
+            } else if (rec.category === 'headset') {
+                document.getElementById('h_person').value = rec.person;
+                document.getElementById('h_qty').value = rec.qty;
+                document.getElementById('h_extra').value = rec.extra || 'NÃO';
+            } else if (rec.category === 'patrimonio') {
+                document.getElementById('a_item').value = rec.item;
+                document.getElementById('a_assetId').value = rec.assetId;
+                document.getElementById('a_rotation').value = rec.rotation;
+                document.getElementById('a_qty').value = rec.qty;
+                document.getElementById('a_person').value = rec.person;
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast('Dados copiados para o formulário acima!');
+        }
+
+        // EDIT MODAL LOGIC
+        function openEditModal(id) {
+            const rec = records.find(r => r.id === id);
+            if (!rec) return;
+
+            document.getElementById('editId').value = rec.id;
+            document.getElementById('editCategory').value = rec.category;
+            document.getElementById('editTimestamp').value = rec.timestamp;
+
+            const labels = {
+                periferico: '1. Entrega de Periféricos',
+                headset: '2. Saída de Headsets',
+                patrimonio: '3. Equipamentos / Patrimônio'
+            };
+            document.getElementById('editCategoryLabel').value = labels[rec.category] || rec.category;
+
+            const container = document.getElementById('editDynamicFields');
+
+            if (rec.category === 'periferico') {
+                container.innerHTML = `
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Item Entregue</label>
+                        <input type="text" id="edit_item" value="${escapeHtml(rec.item)}" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Quem Recebeu</label>
+                            <input type="text" id="edit_person" value="${escapeHtml(rec.person)}" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Quantidade</label>
+                            <input type="number" id="edit_qty" min="1" value="${rec.qty}" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                        </div>
+                    </div>
+                `;
+            } else if (rec.category === 'headset') {
+                container.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Quem Recebeu</label>
+                            <input type="text" id="edit_person" value="${escapeHtml(rec.person)}" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Quantas Unds Saiu</label>
+                            <input type="number" id="edit_qty" min="1" value="${rec.qty}" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Levou Algo Mais?</label>
+                        <input type="text" id="edit_extra" value="${escapeHtml(rec.extra || 'NÃO')}" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                    </div>
+                `;
+            } else if (rec.category === 'patrimonio') {
+                container.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Equipamento</label>
+                            <input type="text" id="edit_item" value="${escapeHtml(rec.item)}" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Patrimônio</label>
+                            <input type="text" id="edit_assetId" value="${escapeHtml(rec.assetId)}" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Fornecedor</label>
+                        <input type="text" id="edit_supplier" list="list-fornecedores" value="${escapeHtml(rec.supplier || '')}" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Rotação</label>
+                            <select id="edit_rotation" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                                <option value="saida do item" ${rec.rotation === 'saida do item' ? 'selected' : ''}>Saída do item</option>
+                                <option value="entrada do item" ${rec.rotation === 'entrada do item' ? 'selected' : ''}>Entrada do item</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Quantidade</label>
+                            <input type="number" id="edit_qty" min="1" value="${rec.qty}" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nome da Pessoa</label>
+                        <input type="text" id="edit_person" value="${escapeHtml(rec.person)}" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                    </div>
+                `;
+            }
+
+            document.getElementById('editModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        function saveEditedRecord(e) {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            const idx = records.findIndex(r => r.id === id);
+            if (idx === -1) return;
+
+            const rec = records[idx];
+            rec.timestamp = document.getElementById('editTimestamp').value.trim();
+
+            if (rec.category === 'periferico') {
+                rec.item = document.getElementById('edit_item').value.trim();
+                rec.person = document.getElementById('edit_person').value.trim();
+                rec.qty = parseInt(document.getElementById('edit_qty').value, 10) || 1;
+            } else if (rec.category === 'headset') {
+                rec.person = document.getElementById('edit_person').value.trim();
+                rec.qty = parseInt(document.getElementById('edit_qty').value, 10) || 1;
+                rec.extra = document.getElementById('edit_extra').value.trim() || 'NÃO';
+            } else if (rec.category === 'patrimonio') {
+                rec.item = document.getElementById('edit_item').value.trim();
+                rec.assetId = document.getElementById('edit_assetId').value.trim();
+                rec.supplier = document.getElementById('edit_supplier').value.trim();
+                rec.rotation = document.getElementById('edit_rotation').value;
+                rec.qty = parseInt(document.getElementById('edit_qty').value, 10) || 1;
+                rec.person = document.getElementById('edit_person').value.trim();
+            }
+
+            saveRecords();
+            closeEditModal();
+            renderAll();
+            showToast('Registro atualizado com sucesso!');
+        }
+
+        // CONFIRMATION MODAL LOGIC
+        let pendingConfirmAction = null;
+
+        function confirmDelete(id) {
+            const rec = records.find(r => r.id === id);
+            if (!rec) return;
+
+            document.getElementById('confirmTitle').textContent = 'Excluir registro?';
+            document.getElementById('confirmMessage').textContent = `Deseja remover "${rec.item}" (${rec.person}) de ${rec.timestamp}?`;
+            pendingConfirmAction = () => {
+                records = records.filter(r => r.id !== id);
+                saveRecords();
+                renderAll();
+                showToast('Registro excluído.');
+            };
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function openResetModal() {
+            document.getElementById('menuDropdown').classList.add('hidden');
+            document.getElementById('confirmTitle').textContent = 'Restaurar dados iniciais?';
+            document.getElementById('confirmMessage').textContent = 'Isso substituirá o histórico atual pelos 26 registros originais importados das suas planilhas.';
+            pendingConfirmAction = () => {
+                records = [...INITIAL_DATA];
+                saveRecords();
+                renderAll();
+                showToast('Dados iniciais restaurados!');
+            };
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function openClearAllModal() {
+            document.getElementById('menuDropdown').classList.add('hidden');
+            document.getElementById('confirmTitle').textContent = 'Limpar todo o histórico?';
+            document.getElementById('confirmMessage').textContent = 'Atenção: todos os lançamentos serão apagados permanentemente deste navegador.';
+            pendingConfirmAction = () => {
+                records = [];
+                saveRecords();
+                renderAll();
+                showToast('Histórico limpo com sucesso.');
+            };
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            pendingConfirmAction = null;
+        }
+
+        document.getElementById('confirmActionBtn').addEventListener('click', () => {
+            if (pendingConfirmAction) pendingConfirmAction();
+            closeConfirmModal();
+        });
+
+        function toggleMenuDropdown() {
+            document.getElementById('menuDropdown').classList.toggle('hidden');
+        }
+
+        function toggleHistory() {
+            const historySection = document.getElementById('historySection');
+            const button = document.getElementById('historyToggleButton');
+            const isHidden = historySection.classList.toggle('hidden');
+
+            button.setAttribute('aria-expanded', String(!isHidden));
+            button.querySelector('span').textContent = isHidden ? 'Exibir histórico' : 'Ocultar histórico';
+        }
+
+        // Export to CSV
+        function exportToCSV() {
+            if (records.length === 0) {
+                showToast('Não há registros para exportar.', true);
+                return;
+            }
+
+            const headers = ['Data/Hora', 'Categoria', 'Item/Equipamento', 'Patrimonio', 'Rotacao', 'Quantidade', 'Pessoa/Recebedor', 'Extras'];
+            const catNames = {
+                periferico: 'Perifericos',
+                headset: 'Saida de Headsets',
+                patrimonio: 'Equipamentos/Patrimonio'
+            };
+
+            const rows = records.map(r => [
+                `"${r.timestamp}"`,
+                `"${catNames[r.category] || r.category}"`,
+                `"${(r.item || '').replace(/"/g, '""')}"`,
+                `"${(r.assetId || '').replace(/"/g, '""')}"`,
+                `"${(r.rotation || '').replace(/"/g, '""')}"`,
+                r.qty,
+                `"${(r.person || '').replace(/"/g, '""')}"`,
+                `"${(r.extra || '').replace(/"/g, '""')}"`
+            ].join(';'));
+
+            const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `controle_ti_unificado_${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast('Arquivo CSV exportado!');
+        }
+
+        // Toast Helper
+        let toastTimeout;
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            toastMsg.textContent = msg;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Escape HTML helper
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
