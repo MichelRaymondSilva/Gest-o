@@ -86,6 +86,11 @@
                     <i data-lucide="download" class="w-4 h-4 text-emerald-600"></i>
                     <span class="hidden sm:inline">Exportar CSV</span>
                 </button>
+                <button type="button" onclick="document.getElementById('csvImportInput').click()" class="inline-flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition shadow-sm" title="Importar registros de um arquivo CSV">
+                    <i data-lucide="upload" class="w-4 h-4 text-emerald-600"></i>
+                    <span class="hidden sm:inline">Importar CSV</span>
+                </button>
+                <input type="file" id="csvImportInput" accept=".csv,text/csv" class="hidden" onchange="importFromCSV(event)">
                 <div class="relative group">
                     <button onclick="toggleMenuDropdown()" id="menuBtn" class="inline-flex items-center justify-center p-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition" title="Opções de Dados">
                         <i data-lucide="more-vertical" class="w-5 h-5"></i>
@@ -1135,6 +1140,180 @@
             button.querySelector('span').textContent = isHidden ? 'Exibir histórico' : 'Ocultar histórico';
         }
 
+        function normalizeCSVHeader(value) {
+            return String(value || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, '');
+        }
+
+        function parseCSVRows(text, delimiter) {
+            const rows = [];
+            let row = [];
+            let field = '';
+            let insideQuotes = false;
+
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                if (insideQuotes) {
+                    if (char === '"' && text[i + 1] === '"') {
+                        field += '"';
+                        i++;
+                    } else if (char === '"') {
+                        insideQuotes = false;
+                    } else {
+                        field += char;
+                    }
+                } else if (char === '"' && field.length === 0) {
+                    insideQuotes = true;
+                } else if (char === delimiter) {
+                    row.push(field);
+                    field = '';
+                } else if (char === '\n' || char === '\r') {
+                    if (char === '\r' && text[i + 1] === '\n') i++;
+                    row.push(field);
+                    if (row.some(value => value.trim() !== '')) rows.push(row);
+                    row = [];
+                    field = '';
+                } else {
+                    field += char;
+                }
+            }
+
+            if (insideQuotes) throw new Error('O arquivo contém aspas sem fechamento.');
+            row.push(field);
+            if (row.some(value => value.trim() !== '')) rows.push(row);
+            return rows;
+        }
+
+        function parseCSVRecords(text) {
+            const candidates = [';', ',', '\t'];
+            let rows = null;
+
+            for (const candidate of candidates) {
+                const parsed = parseCSVRows(text.replace(/^\uFEFF/, ''), candidate);
+                if (parsed.length && (!rows || parsed[0].length > rows[0].length)) {
+                    rows = parsed;
+                }
+            }
+
+            if (!rows || rows.length < 2) throw new Error('O CSV precisa ter cabeçalho e pelo menos um registro.');
+
+            const headers = rows[0].map(value => value.trim());
+            const normalizedHeaders = headers.map(normalizeCSVHeader);
+            if (normalizedHeaders.some(header => !header)) throw new Error('Há uma coluna sem nome no cabeçalho do CSV.');
+            if (new Set(normalizedHeaders).size !== normalizedHeaders.length) throw new Error('O CSV possui nomes de colunas repetidos.');
+
+            const aliases = {
+                timestamp: ['datahora', 'data', 'timestamp', 'carimbodatahora', 'date'],
+                category: ['categoria', 'formulario', 'category', 'tipo'],
+                item: ['itemequipamento', 'item', 'equipamento', 'itementregue', 'produto'],
+                assetId: ['patrimonio', 'assetid', 'numeropatrimonio', 'tombamento'],
+                supplier: ['fornecedor', 'supplier', 'vendor'],
+                rotation: ['rotacao', 'movimentacao', 'tipodemovimentacao', 'movement'],
+                qty: ['quantidade', 'qtd', 'qty', 'quantity'],
+                person: ['pessoarecebedor', 'pessoa', 'recebedor', 'nomedapessoa', 'quemrecebeu', 'person'],
+                extra: ['extras', 'extra', 'observacao', 'observacoes']
+            };
+            const columnIndexes = {};
+            Object.keys(aliases).forEach(fieldName => {
+                const matches = normalizedHeaders
+                    .map((header, index) => aliases[fieldName].includes(header) ? index : -1)
+                    .filter(index => index !== -1);
+                if (matches.length > 1) throw new Error(`O CSV possui mais de uma coluna para "${fieldName}".`);
+                if (matches.length === 1) columnIndexes[fieldName] = matches[0];
+            });
+
+            const requiredFields = ['timestamp', 'category', 'item'];
+            const missingFields = requiredFields.filter(fieldName => columnIndexes[fieldName] === undefined);
+            if (missingFields.length) {
+                throw new Error('Colunas obrigatórias ausentes: Data/Hora, Categoria e Item/Equipamento.');
+            }
+
+            const knownIndexes = new Set(Object.keys(columnIndexes).map(fieldName => columnIndexes[fieldName]));
+            const importedRecords = [];
+            const categoryNames = {
+                periferico: 'periferico',
+                perifericos: 'periferico',
+                headset: 'headset',
+                headsets: 'headset',
+                patrimonio: 'patrimonio'
+            };
+
+            rows.slice(1).forEach((values, index) => {
+                const rowNumber = index + 2;
+                if (values.length > headers.length) throw new Error(`O registro ${rowNumber} tem mais valores do que colunas.`);
+                while (values.length < headers.length) values.push('');
+
+                const getValue = fieldName => columnIndexes[fieldName] === undefined
+                    ? ''
+                    : String(values[columnIndexes[fieldName]] || '').trim();
+                const rawCategory = normalizeCSVHeader(getValue('category'));
+                let category = categoryNames[rawCategory];
+                if (!category && rawCategory.includes('headset')) category = 'headset';
+                if (!category && (rawCategory.includes('patrimonio') || rawCategory.includes('equipamento'))) category = 'patrimonio';
+                if (!category && rawCategory.includes('periferico')) category = 'periferico';
+                if (!category) throw new Error(`Categoria não reconhecida no registro ${rowNumber}.`);
+
+                const timestamp = getValue('timestamp');
+                const item = getValue('item');
+                if (!timestamp || !item) throw new Error(`Data/Hora e Item/Equipamento são obrigatórios no registro ${rowNumber}.`);
+
+                const rawQty = getValue('qty').replace(/\s/g, '');
+                const normalizedQty = /^\d{1,3}(?:\.\d{3})+(?:,\d+)?$/.test(rawQty)
+                    ? rawQty.replace(/\./g, '').replace(',', '.')
+                    : rawQty.replace(',', '.');
+                const qty = normalizedQty ? Number(normalizedQty) : 1;
+                if (!Number.isInteger(qty) || qty < 1) throw new Error(`Quantidade inválida no registro ${rowNumber}.`);
+
+                const sourceFields = {};
+                headers.forEach((header, columnIndex) => {
+                    if (!knownIndexes.has(columnIndex)) sourceFields[header] = values[columnIndex];
+                });
+
+                importedRecords.push({
+                    id: `csv-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+                    category,
+                    timestamp,
+                    item,
+                    person: getValue('person'),
+                    qty,
+                    extra: getValue('extra'),
+                    assetId: getValue('assetId'),
+                    supplier: getValue('supplier'),
+                    rotation: getValue('rotation') || 'saida do item',
+                    sourceFields
+                });
+            });
+
+            return importedRecords;
+        }
+
+        async function importFromCSV(event) {
+            const input = event.target;
+            const file = input.files && input.files[0];
+            if (!file) return;
+
+            try {
+                const importedRecords = parseCSVRecords(await file.text());
+                const previousRecords = records;
+                records = [...importedRecords, ...records];
+                try {
+                    saveRecords();
+                } catch (error) {
+                    records = previousRecords;
+                    throw error;
+                }
+                renderAll();
+                showToast(`${importedRecords.length} registro(s) importado(s) com sucesso.`);
+            } catch (error) {
+                showToast(`Importação não realizada: ${error.message}`, true);
+            } finally {
+                input.value = '';
+            }
+        }
+
         // Export to CSV
         function exportToCSV() {
             if (records.length === 0) {
@@ -1142,25 +1321,28 @@
                 return;
             }
 
-            const headers = ['Data/Hora', 'Categoria', 'Item/Equipamento', 'Patrimonio', 'Rotacao', 'Quantidade', 'Pessoa/Recebedor', 'Extras'];
+            const headers = ['Data/Hora', 'Categoria', 'Item/Equipamento', 'Patrimonio', 'Fornecedor', 'Rotacao', 'Quantidade', 'Pessoa/Recebedor', 'Extras'];
+            const extraHeaders = [...new Set(records.flatMap(record => Object.keys(record.sourceFields || {})))];
             const catNames = {
                 periferico: 'Perifericos',
                 headset: 'Saida de Headsets',
                 patrimonio: 'Equipamentos/Patrimonio'
             };
+            const escapeCSV = value => `"${String(value === null || value === undefined ? '' : value).replace(/"/g, '""')}"`;
+            const rows = records.map(record => [
+                record.timestamp,
+                catNames[record.category] || record.category,
+                record.item,
+                record.assetId,
+                record.supplier,
+                record.rotation,
+                record.qty,
+                record.person,
+                record.extra,
+                ...extraHeaders.map(header => (record.sourceFields || {})[header] || '')
+            ].map(escapeCSV).join(';'));
 
-            const rows = records.map(r => [
-                `"${r.timestamp}"`,
-                `"${catNames[r.category] || r.category}"`,
-                `"${(r.item || '').replace(/"/g, '""')}"`,
-                `"${(r.assetId || '').replace(/"/g, '""')}"`,
-                `"${(r.rotation || '').replace(/"/g, '""')}"`,
-                r.qty,
-                `"${(r.person || '').replace(/"/g, '""')}"`,
-                `"${(r.extra || '').replace(/"/g, '""')}"`
-            ].join(';'));
-
-            const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+            const csvContent = '\uFEFF' + [[...headers, ...extraHeaders].map(escapeCSV).join(';'), ...rows].join('\r\n');
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -1179,7 +1361,12 @@
         function showToast(msg, isError = false) {
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toastMessage');
+            const toastContent = toast.firstElementChild;
+            const toastIcon = toast.querySelector('i');
             toastMsg.textContent = msg;
+            toastContent.classList.toggle('bg-red-700', isError);
+            toastContent.classList.toggle('bg-slate-900', !isError);
+            toastIcon.classList.toggle('hidden', isError);
 
             toast.classList.remove('translate-y-20', 'opacity-0');
             clearTimeout(toastTimeout);
