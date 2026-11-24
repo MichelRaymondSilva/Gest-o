@@ -68,7 +68,11 @@
     </style>
 </head>
 <body class="bg-[#588157] text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+<!-- Importa a biblioteca do Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+<!-- Seu script principal -->
+<script src="script.js"></script>
     <!-- Navbar / Header -->
     <header class="dark-surface bg-[#344E41] border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -549,6 +553,54 @@
     </div>
 
     <script>
+        // 1. Inicializar o cliente Supabase
+const SUPABASE_URL = "SUA_URL_DO_SUPABASE_AQUI";
+const SUPABASE_KEY = "SUA_CHAVE_ANON_AQUI";
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// 2. Função para SALVAR dados no banco (Substitui o localStorage.setItem)
+async function salvarItem(textoDigitado) {
+  const { data, error } = await db
+    .from('itens') // nome da sua tabela
+    .insert([
+      { texto: textoDigitado }
+    ]);
+
+  if (error) {
+    console.error("Erro ao salvar:", error.message);
+  } else {
+    console.log("Salvo com sucesso no banco!");
+    carregarItens(); // Atualiza a tela após salvar
+  }
+}
+
+// 3. Função para CARREGAR dados do banco (Substitui o localStorage.getItem)
+async function carregarItens() {
+  const { data, error } = await db
+    .from('itens')
+    .select('*')
+    .order('id', { ascending: true });
+
+  if (error) {
+    console.error("Erro ao buscar:", error.message);
+    return;
+  }
+
+  // Aqui você monta seu HTML com os dados vindos da nuvem
+  console.log("Dados carregados da nuvem:", data);
+  
+  const listaElemento = document.getElementById("minhaLista");
+  listaElemento.innerHTML = ""; // Limpa a lista antes de desenhar
+
+  data.forEach(item => {
+    const li = document.createElement("li");
+    li.textContent = item.texto;
+    listaElemento.appendChild(li);
+  });
+}
+
+// Chamar ao carregar a página
+window.onload = carregarItens;
         // Storage Key
         const STORAGE_KEY = 'ti_unified_inventory_v1';
         const RECORDS_CLEARED_KEY = 'ti_unified_inventory_records_cleared_v1';
