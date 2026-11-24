@@ -12,6 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -68,11 +70,7 @@
     </style>
 </head>
 <body class="bg-[#588157] text-slate-800 font-sans antialiased min-h-screen flex flex-col">
-<!-- Importa a biblioteca do Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<!-- Seu script principal -->
-<script src="script.js"></script>
     <!-- Navbar / Header -->
     <header class="dark-surface bg-[#344E41] border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -465,8 +463,8 @@
     <!-- Footer -->
     <footer class="dark-surface bg-[#344E41] border-t border-slate-200 py-4 mt-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
-            <p>Sistema Unificado de Controle de Inventário & TI • Armazenamento Local Automático</p>
-            <p>Dados sincronizados no navegador</p>
+            <p>Sistema Unificado de Controle de Inventário & TI</p>
+            <p id="storageStatusText">Armazenamento Local Ativo</p>
         </div>
     </footer>
 
@@ -500,10 +498,7 @@
                     </div>
                 </div>
 
-                <!-- Dynamic Edit Fields -->
-                <div id="editDynamicFields" class="space-y-4">
-                    <!-- Injected via JS based on category -->
-                </div>
+                <div id="editDynamicFields" class="space-y-4"></div>
 
                 <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
                     <button type="button" onclick="closeEditModal()"
@@ -519,7 +514,7 @@
         </div>
     </div>
 
-    <!-- CONFIRMATION MODAL (Delete / Reset / Clear) -->
+    <!-- CONFIRMATION MODAL -->
     <div id="confirmModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
         <div class="dark-surface bg-[#344E41] rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 fade-in">
             <div class="flex items-start gap-4">
@@ -553,140 +548,76 @@
     </div>
 
     <script>
-        // 1. Inicializar o cliente Supabase
-const SUPABASE_URL = "SUA_URL_DO_SUPABASE_AQUI";
-const SUPABASE_KEY = "SUA_CHAVE_ANON_AQUI";
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // ==========================================
+        // CONFIGURAÇÃO OPCIONAL DO SUPABASE
+        // Para sincronizar na nuvem, preencha abaixo:
+        // ==========================================
+        const SUPABASE_URL = ""; 
+        const SUPABASE_KEY = "";
 
-// 2. Função para SALVAR dados no banco (Substitui o localStorage.setItem)
-async function salvarItem(textoDigitado) {
-  const { data, error } = await db
-    .from('itens') // nome da sua tabela
-    .insert([
-      { texto: textoDigitado }
-    ]);
+        // Inicializa o Supabase apenas se houver uma URL válida configurada
+        let db = null;
+        if (SUPABASE_URL && SUPABASE_URL.startsWith("http") && SUPABASE_KEY) {
+            try {
+                db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                const statusEl = document.getElementById('storageStatusText');
+                if (statusEl) statusEl.textContent = 'Sincronizado na Nuvem (Supabase)';
+            } catch (err) {
+                console.error("Falha ao inicializar Supabase:", err);
+            }
+        }
 
-  if (error) {
-    console.error("Erro ao salvar:", error.message);
-  } else {
-    console.log("Salvo com sucesso no banco!");
-    carregarItens(); // Atualiza a tela após salvar
-  }
-}
-
-// 3. Função para CARREGAR dados do banco (Substitui o localStorage.getItem)
-async function carregarItens() {
-  const { data, error } = await db
-    .from('itens')
-    .select('*')
-    .order('id', { ascending: true });
-
-  if (error) {
-    console.error("Erro ao buscar:", error.message);
-    return;
-  }
-
-  // Aqui você monta seu HTML com os dados vindos da nuvem
-  console.log("Dados carregados da nuvem:", data);
-  
-  const listaElemento = document.getElementById("minhaLista");
-  listaElemento.innerHTML = ""; // Limpa a lista antes de desenhar
-
-  data.forEach(item => {
-    const li = document.createElement("li");
-    li.textContent = item.texto;
-    listaElemento.appendChild(li);
-  });
-}
-
-// Chamar ao carregar a página
-window.onload = carregarItens;
-        // Storage Key
         const STORAGE_KEY = 'ti_unified_inventory_v1';
-        const RECORDS_CLEARED_KEY = 'ti_unified_inventory_records_cleared_v1';
-
-        // Initial Pre-populated Data from User's 3 Forms
-        const INITIAL_DATA = [
-            // Form 1: Periféricos
-            { id: 'f1-1', category: 'periferico', timestamp: '16/11/2026 10:50:29', item: 'teclado', person: 'DAVID', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
-            { id: 'f1-2', category: 'periferico', timestamp: '16/11/2026 10:50:37', item: 'mouse', person: 'DAVID', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
-            { id: 'f1-3', category: 'periferico', timestamp: '16/11/2026 10:50:49', item: 'mouse', person: 'ANNE', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
-            { id: 'f1-4', category: 'periferico', timestamp: '16/11/2026 10:51:00', item: 'Cabo Vga', person: 'ANNE', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
-            { id: 'f1-5', category: 'periferico', timestamp: '16/11/2026 10:51:12', item: 'mouse', person: 'ANNE', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
-            { id: 'f1-6', category: 'periferico', timestamp: '16/11/2026 10:51:24', item: 'cabo de força', person: 'ANNE', qty: 2, extra: '', assetId: '', rotation: 'saida do item' },
-            { id: 'f1-7', category: 'periferico', timestamp: '16/11/2026 10:51:41', item: 'mouse', person: 'JONAS', qty: 1, extra: '', assetId: '', rotation: 'saida do item' },
-
-            // Form 2: Saída de Headsets
-            { id: 'f2-1', category: 'headset', timestamp: '11/11/2026 16:31:30', item: 'Headset', person: 'ANNE', qty: 1, extra: 'n', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-2', category: 'headset', timestamp: '11/11/2026 17:34:57', item: 'Headset', person: 'JONATHAN', qty: 2, extra: 'n', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-3', category: 'headset', timestamp: '12/11/2026 08:52:26', item: 'Headset', person: 'ANNE', qty: 2, extra: 'n', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-4', category: 'headset', timestamp: '12/11/2026 09:34:35', item: 'Headset', person: 'JONATHAN', qty: 2, extra: 'n', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-5', category: 'headset', timestamp: '12/11/2026 11:39:15', item: 'Headset', person: 'FABRICIO', qty: 3, extra: 'n', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-6', category: 'headset', timestamp: '12/11/2026 16:01:10', item: 'Headset', person: 'JONATHAN', qty: 2, extra: 'NÃO', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-7', category: 'headset', timestamp: '13/11/2026 10:32:25', item: 'Headset', person: 'ANNE', qty: 1, extra: 'n', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-8', category: 'headset', timestamp: '13/11/2026 14:07:31', item: 'Headset', person: 'ANNE', qty: 1, extra: 'NÃO', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-9', category: 'headset', timestamp: '13/11/2026 14:07:40', item: 'Headset', person: 'DAVID', qty: 1, extra: 'NÃO', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-10', category: 'headset', timestamp: '13/11/2026 16:22:09', item: 'Headset', person: 'ANNE', qty: 1, extra: 'n', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-11', category: 'headset', timestamp: '16/11/2026 10:40:29', item: 'Headset', person: 'JONATHAN', qty: 3, extra: 'n', assetId: '', rotation: 'saida do item' },
-            { id: 'f2-12', category: 'headset', timestamp: '16/11/2026 11:11:48', item: 'Headset', person: 'DAVID', qty: 1, extra: 'NÃO', assetId: '', rotation: 'saida do item' },
-
-            // Form 3: Movimentação de Equipamentos / Patrimônio
-            { id: 'f3-1', category: 'patrimonio', timestamp: '11/11/2026 15:20:00', item: 'Desktop', person: 'JONATHAN', qty: 1, extra: '', assetId: '23121', rotation: 'entrada do item' },
-            { id: 'f3-2', category: 'patrimonio', timestamp: '11/11/2026 15:20:15', item: 'Desktop', person: 'JONATHAN', qty: 1, extra: '', assetId: '23414', rotation: 'saida do item' },
-            { id: 'f3-3', category: 'patrimonio', timestamp: '12/11/2026 10:33:25', item: 'Notebook', person: 'Dalcilene', qty: 1, extra: '', assetId: '377 lotus', rotation: 'saida do item' },
-            { id: 'f3-4', category: 'patrimonio', timestamp: '12/11/2026 11:01:49', item: 'Notebook', person: 'welber', qty: 1, extra: '', assetId: '1613', rotation: 'saida do item' },
-            { id: 'f3-5', category: 'patrimonio', timestamp: '13/11/2026 08:18:53', item: 'Desktop', person: 'Rubens', qty: 1, extra: '', assetId: '20787', rotation: 'saida do item' },
-            { id: 'f3-6', category: 'patrimonio', timestamp: '13/11/2026 08:19:13', item: 'Monitor', person: 'rubens', qty: 1, extra: '', assetId: '21259', rotation: 'saida do item' },
-            { id: 'f3-7', category: 'patrimonio', timestamp: '16/11/2026 10:57:13', item: 'Monitor', person: 'david', qty: 1, extra: '', assetId: '22265', rotation: 'entrada do item' }
-        ];
-
         let records = [];
 
-        // Initialize App
-        document.addEventListener('DOMContentLoaded', () => {
-            loadRecords();
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', async () => {
             setNowTimestamp('inputTimestamp');
-            updateDatalists();
-            renderAll();
+            await loadRecords();
             lucide.createIcons();
 
-            // Close dropdown on outside click
             document.addEventListener('click', (e) => {
                 const menuBtn = document.getElementById('menuBtn');
                 const dropdown = document.getElementById('menuDropdown');
-                if (!menuBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                if (menuBtn && dropdown && !menuBtn.contains(e.target) && !dropdown.contains(e.target)) {
                     dropdown.classList.add('hidden');
                 }
             });
         });
 
-        // Clear existing records once, then load the local history.
-        function loadRecords() {
-            if (!localStorage.getItem(RECORDS_CLEARED_KEY)) {
-                localStorage.removeItem(STORAGE_KEY);
-                localStorage.setItem(RECORDS_CLEARED_KEY, 'true');
-            }
-
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
+        // Carrega registros da nuvem ou do armazenamento local
+        async function loadRecords() {
+            if (db) {
                 try {
-                    records = JSON.parse(saved);
-                } catch (e) {
-                    records = [];
-                    saveRecords();
+                    const { data, error } = await db
+                        .from('registros_ti')
+                        .select('*')
+                        .order('timestamp', { ascending: false });
+
+                    if (error) throw error;
+                    records = data || [];
+                } catch (err) {
+                    console.warn("Supabase indisponível, usando registros locais:", err.message);
+                    loadLocalRecords();
                 }
             } else {
-                records = [];
-                saveRecords();
+                loadLocalRecords();
             }
-        }
 
-        function saveRecords() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
             updateDatalists();
+            renderAll();
         }
 
-        // Format Current Date/Time as DD/MM/YYYY HH:mm:ss
+        function loadLocalRecords() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            records = saved ? JSON.parse(saved) : [];
+        }
+
+        function saveLocalRecords() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+        }
+
+        // Formatação de data/hora atual
         function getFormattedNow() {
             const now = new Date();
             const pad = (n) => String(n).padStart(2, '0');
@@ -697,7 +628,6 @@ window.onload = carregarItens;
             document.getElementById(inputId).value = getFormattedNow();
         }
 
-        // Parse DD/MM/YYYY HH:mm:ss to Date object for sorting
         function parseBrDate(str) {
             if (!str) return 0;
             const parts = str.trim().split(' ');
@@ -714,11 +644,10 @@ window.onload = carregarItens;
             ).getTime();
         }
 
-        // Switch Form Tabs
+        // Alternar abas
         function selectFormType(type) {
             document.getElementById('formCategory').value = type;
 
-            // Update Tab Styles
             const tabs = {
                 periferico: { btn: 'tab-periferico', activeClass: 'bg-white text-blue-700 shadow-sm font-semibold', btnColor: 'bg-blue-600 hover:bg-blue-700', helper: 'Registrando entrega rápida de periféricos ou cabos avulsos.' },
                 headset: { btn: 'tab-headset', activeClass: 'bg-white text-purple-700 shadow-sm font-semibold', btnColor: 'bg-purple-600 hover:bg-purple-700', helper: 'Registrando saída de headsets e itens complementares.' },
@@ -737,16 +666,14 @@ window.onload = carregarItens;
                 }
             });
 
-            // Update Submit Button Color & Helper Text
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.className = `w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 text-white font-semibold text-sm rounded-xl shadow-sm transition cursor-pointer ${tabs[type].btnColor}`;
             document.getElementById('formHelperText').textContent = tabs[type].helper;
-
             setNowTimestamp('inputTimestamp');
         }
 
-        // Handle New Entry Submission
-        function handleFormSubmit(e) {
+        // SALVAR NOVO REGISTRO DO FORMULÁRIO
+        async function handleFormSubmit(e) {
             e.preventDefault();
             const category = document.getElementById('formCategory').value;
             const timestamp = document.getElementById('inputTimestamp').value.trim() || getFormattedNow();
@@ -806,18 +733,25 @@ window.onload = carregarItens;
                 newRecord.rotation = rotation;
                 newRecord.qty = qty;
                 newRecord.person = person;
-
             }
 
+            // Salva na nuvem se o Supabase estiver configurado
+            if (db) {
+                try {
+                    const { error } = await db.from('registros_ti').insert([newRecord]);
+                    if (error) throw error;
+                } catch (err) {
+                    console.error("Erro no Supabase:", err);
+                    showToast(`Erro ao salvar na nuvem: ${err.message}`, true);
+                    return;
+                }
+            }
+
+            // Salva no armazenamento local
             records.unshift(newRecord);
-            try {
-                saveRecords();
-            } catch (error) {
-                records.shift();
-                showToast(`Não foi possível salvar o lançamento: ${error.message}`, true);
-                return;
-            }
+            saveLocalRecords();
 
+            // Limpa os campos
             if (category === 'periferico') {
                 document.getElementById('p_item').value = '';
                 document.getElementById('p_person').value = '';
@@ -835,11 +769,12 @@ window.onload = carregarItens;
             }
 
             setNowTimestamp('inputTimestamp');
+            updateDatalists();
             renderAll();
             showToast('Lançamento registrado com sucesso!');
         }
 
-        // Update Datalists dynamically with user entries
+        // Atualizar Datalists
         function updateDatalists() {
             const peopleSet = new Set(['DAVID', 'ANNE', 'JONAS', 'JONATHAN', 'FABRICIO', 'Dalcilene', 'welber', 'Rubens']);
             const periphSet = new Set(['Teclado', 'Mouse', 'Cabo VGA', 'Cabo de força', 'Cabo HDMI', 'Cabo de Rede']);
@@ -856,7 +791,7 @@ window.onload = carregarItens;
             document.getElementById('list-equipamentos').innerHTML = Array.from(equipSet).map(v => `<option value="${escapeHtml(v)}">`).join('');
         }
 
-        // Render Dashboard & Table
+        // Renderizar
         function renderAll() {
             updateStats();
             renderHistory();
@@ -885,7 +820,6 @@ window.onload = carregarItens;
             const rotFilter = document.getElementById('filterRotation').value;
             const dateFilter = document.getElementById('filterDate').value.trim();
 
-            // Sort descending by timestamp
             const sorted = [...records].sort((a, b) => parseBrDate(b.timestamp) - parseBrDate(a.timestamp));
 
             const filtered = sorted.filter(r => {
@@ -920,7 +854,6 @@ window.onload = carregarItens;
             emptyState.classList.add('hidden');
 
             tbody.innerHTML = filtered.map(r => {
-                // Category Badge
                 let catBadge = '';
                 if (r.category === 'periferico') {
                     catBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">Periférico</span>`;
@@ -930,7 +863,6 @@ window.onload = carregarItens;
                     catBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">Patrimônio</span>`;
                 }
 
-                // Details / Patrimônio column
                 let detailHtml = '<span class="text-slate-400 text-xs">—</span>';
                 if (r.category === 'patrimonio' && r.assetId) {
                     detailHtml = `<span class="inline-flex flex-col gap-0.5">
@@ -944,7 +876,6 @@ window.onload = carregarItens;
                         : `<span class="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">+ ${escapeHtml(r.extra)}</span>`;
                 }
 
-                // Rotation Badge
                 const isEntry = r.rotation && r.rotation.toLowerCase().includes('entrada');
                 const rotBadge = isEntry
                     ? `<span class="inline-flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md"><i data-lucide="arrow-down-left" class="w-3.5 h-3.5"></i> Entrada</span>`
@@ -961,15 +892,15 @@ window.onload = carregarItens;
                         <td class="py-3 px-4 font-medium text-slate-800">${escapeHtml(r.person)}</td>
                         <td class="py-3 px-4 whitespace-nowrap text-right">
                             <div class="inline-flex items-center gap-1">
-                                <button onclick="duplicateRecord('${r.id}')" title="Reutilizar / Duplicar para novo lançamento"
+                                <button onclick="duplicateRecord('${r.id}')" title="Duplicar"
                                     class="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition">
                                     <i data-lucide="copy-plus" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="openEditModal('${r.id}')" title="Editar registro"
+                                <button onclick="openEditModal('${r.id}')" title="Editar"
                                     class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition">
                                     <i data-lucide="pencil" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="confirmDelete('${r.id}')" title="Excluir registro"
+                                <button onclick="confirmDelete('${r.id}')" title="Excluir"
                                     class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
@@ -982,7 +913,7 @@ window.onload = carregarItens;
             lucide.createIcons();
         }
 
-        // Duplicate Record into Form for Fast Entry
+        // Duplicar registro
         function duplicateRecord(id) {
             const rec = records.find(r => r.id === id);
             if (!rec) return;
@@ -1008,10 +939,10 @@ window.onload = carregarItens;
             }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            showToast('Dados copiados para o formulário acima!');
+            showToast('Dados copiados para o formulário!');
         }
 
-        // EDIT MODAL LOGIC
+        // Modal de Edição
         function openEditModal(id) {
             const rec = records.find(r => r.id === id);
             if (!rec) return;
@@ -1107,39 +1038,52 @@ window.onload = carregarItens;
             document.getElementById('editModal').classList.add('hidden');
         }
 
-        function saveEditedRecord(e) {
+        async function saveEditedRecord(e) {
             e.preventDefault();
             const id = document.getElementById('editId').value;
-            const idx = records.findIndex(r => r.id === id);
-            if (idx === -1) return;
+            const category = document.getElementById('editCategory').value;
 
-            const rec = records[idx];
-            rec.timestamp = document.getElementById('editTimestamp').value.trim();
+            const updatedData = {
+                timestamp: document.getElementById('editTimestamp').value.trim()
+            };
 
-            if (rec.category === 'periferico') {
-                rec.item = document.getElementById('edit_item').value.trim();
-                rec.person = document.getElementById('edit_person').value.trim();
-                rec.qty = parseInt(document.getElementById('edit_qty').value, 10) || 1;
-            } else if (rec.category === 'headset') {
-                rec.person = document.getElementById('edit_person').value.trim();
-                rec.qty = parseInt(document.getElementById('edit_qty').value, 10) || 1;
-                rec.extra = document.getElementById('edit_extra').value.trim() || 'NÃO';
-            } else if (rec.category === 'patrimonio') {
-                rec.item = document.getElementById('edit_item').value.trim();
-                rec.assetId = document.getElementById('edit_assetId').value.trim();
-                rec.supplier = document.getElementById('edit_supplier').value.trim();
-                rec.rotation = document.getElementById('edit_rotation').value;
-                rec.qty = parseInt(document.getElementById('edit_qty').value, 10) || 1;
-                rec.person = document.getElementById('edit_person').value.trim();
+            if (category === 'periferico') {
+                updatedData.item = document.getElementById('edit_item').value.trim();
+                updatedData.person = document.getElementById('edit_person').value.trim();
+                updatedData.qty = parseInt(document.getElementById('edit_qty').value, 10) || 1;
+            } else if (category === 'headset') {
+                updatedData.person = document.getElementById('edit_person').value.trim();
+                updatedData.qty = parseInt(document.getElementById('edit_qty').value, 10) || 1;
+                updatedData.extra = document.getElementById('edit_extra').value.trim() || 'NÃO';
+            } else if (category === 'patrimonio') {
+                updatedData.item = document.getElementById('edit_item').value.trim();
+                updatedData.assetId = document.getElementById('edit_assetId').value.trim();
+                updatedData.supplier = document.getElementById('edit_supplier').value.trim();
+                updatedData.rotation = document.getElementById('edit_rotation').value;
+                updatedData.qty = parseInt(document.getElementById('edit_qty').value, 10) || 1;
+                updatedData.person = document.getElementById('edit_person').value.trim();
             }
 
-            saveRecords();
+            if (db) {
+                try {
+                    await db.from('registros_ti').update(updatedData).eq('id', id);
+                } catch (err) {
+                    console.error("Erro ao atualizar no Supabase:", err);
+                }
+            }
+
+            const idx = records.findIndex(r => r.id === id);
+            if (idx !== -1) {
+                records[idx] = { ...records[idx], ...updatedData };
+                saveLocalRecords();
+            }
+
             closeEditModal();
             renderAll();
             showToast('Registro atualizado com sucesso!');
         }
 
-        // CONFIRMATION MODAL LOGIC
+        // Exclusão
         let pendingConfirmAction = null;
 
         function confirmDelete(id) {
@@ -1147,10 +1091,17 @@ window.onload = carregarItens;
             if (!rec) return;
 
             document.getElementById('confirmTitle').textContent = 'Excluir registro?';
-            document.getElementById('confirmMessage').textContent = `Deseja remover "${rec.item}" (${rec.person}) de ${rec.timestamp}?`;
-            pendingConfirmAction = () => {
+            document.getElementById('confirmMessage').textContent = `Deseja remover "${rec.item}" (${rec.person})?`;
+            pendingConfirmAction = async () => {
+                if (db) {
+                    try {
+                        await db.from('registros_ti').delete().eq('id', id);
+                    } catch (err) {
+                        console.error("Erro ao deletar no Supabase:", err);
+                    }
+                }
                 records = records.filter(r => r.id !== id);
-                saveRecords();
+                saveLocalRecords();
                 renderAll();
                 showToast('Registro excluído.');
             };
@@ -1160,12 +1111,12 @@ window.onload = carregarItens;
         function openResetModal() {
             document.getElementById('menuDropdown').classList.add('hidden');
             document.getElementById('confirmTitle').textContent = 'Restaurar dados iniciais?';
-            document.getElementById('confirmMessage').textContent = 'Isso substituirá o histórico atual pelos 26 registros originais importados das suas planilhas.';
+            document.getElementById('confirmMessage').textContent = 'Isso limpará os registros atuais.';
             pendingConfirmAction = () => {
-                records = [...INITIAL_DATA];
-                saveRecords();
+                records = [];
+                saveLocalRecords();
                 renderAll();
-                showToast('Dados iniciais restaurados!');
+                showToast('Dados restaurados!');
             };
             document.getElementById('confirmModal').classList.remove('hidden');
         }
@@ -1173,10 +1124,10 @@ window.onload = carregarItens;
         function openClearAllModal() {
             document.getElementById('menuDropdown').classList.add('hidden');
             document.getElementById('confirmTitle').textContent = 'Limpar todo o histórico?';
-            document.getElementById('confirmMessage').textContent = 'Atenção: todos os lançamentos serão apagados permanentemente deste navegador.';
+            document.getElementById('confirmMessage').textContent = 'Atenção: todos os lançamentos locais serão apagados.';
             pendingConfirmAction = () => {
                 records = [];
-                saveRecords();
+                saveLocalRecords();
                 renderAll();
                 showToast('Histórico limpo com sucesso.');
             };
@@ -1188,8 +1139,8 @@ window.onload = carregarItens;
             pendingConfirmAction = null;
         }
 
-        document.getElementById('confirmActionBtn').addEventListener('click', () => {
-            if (pendingConfirmAction) pendingConfirmAction();
+        document.getElementById('confirmActionBtn').addEventListener('click', async () => {
+            if (pendingConfirmAction) await pendingConfirmAction();
             closeConfirmModal();
         });
 
@@ -1206,181 +1157,7 @@ window.onload = carregarItens;
             button.querySelector('span').textContent = isHidden ? 'Exibir histórico' : 'Ocultar histórico';
         }
 
-        function normalizeCSVHeader(value) {
-            return String(value || '')
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .toLowerCase()
-                .replace(/[^a-z0-9]/g, '');
-        }
-
-        function parseCSVRows(text, delimiter) {
-            const rows = [];
-            let row = [];
-            let field = '';
-            let insideQuotes = false;
-
-            for (let i = 0; i < text.length; i++) {
-                const char = text[i];
-                if (insideQuotes) {
-                    if (char === '"' && text[i + 1] === '"') {
-                        field += '"';
-                        i++;
-                    } else if (char === '"') {
-                        insideQuotes = false;
-                    } else {
-                        field += char;
-                    }
-                } else if (char === '"' && field.length === 0) {
-                    insideQuotes = true;
-                } else if (char === delimiter) {
-                    row.push(field);
-                    field = '';
-                } else if (char === '\n' || char === '\r') {
-                    if (char === '\r' && text[i + 1] === '\n') i++;
-                    row.push(field);
-                    if (row.some(value => value.trim() !== '')) rows.push(row);
-                    row = [];
-                    field = '';
-                } else {
-                    field += char;
-                }
-            }
-
-            if (insideQuotes) throw new Error('O arquivo contém aspas sem fechamento.');
-            row.push(field);
-            if (row.some(value => value.trim() !== '')) rows.push(row);
-            return rows;
-        }
-
-        function parseCSVRecords(text) {
-            const candidates = [';', ',', '\t'];
-            let rows = null;
-
-            for (const candidate of candidates) {
-                const parsed = parseCSVRows(text.replace(/^\uFEFF/, ''), candidate);
-                if (parsed.length && (!rows || parsed[0].length > rows[0].length)) {
-                    rows = parsed;
-                }
-            }
-
-            if (!rows || rows.length < 2) throw new Error('O CSV precisa ter cabeçalho e pelo menos um registro.');
-
-            const headers = rows[0].map(value => value.trim());
-            const normalizedHeaders = headers.map(normalizeCSVHeader);
-            if (normalizedHeaders.some(header => !header)) throw new Error('Há uma coluna sem nome no cabeçalho do CSV.');
-            if (new Set(normalizedHeaders).size !== normalizedHeaders.length) throw new Error('O CSV possui nomes de colunas repetidos.');
-
-            const aliases = {
-                timestamp: ['datahora', 'data', 'timestamp', 'carimbodatahora', 'date'],
-                category: ['categoria', 'formulario', 'category', 'tipo'],
-                item: ['itemequipamento', 'item', 'equipamento', 'itementregue', 'produto'],
-                assetId: ['patrimonio', 'assetid', 'numeropatrimonio', 'tombamento'],
-                supplier: ['fornecedor', 'supplier', 'vendor'],
-                rotation: ['rotacao', 'movimentacao', 'tipodemovimentacao', 'movement'],
-                qty: ['quantidade', 'qtd', 'qty', 'quantity'],
-                person: ['pessoarecebedor', 'pessoa', 'recebedor', 'nomedapessoa', 'quemrecebeu', 'person'],
-                extra: ['extras', 'extra', 'observacao', 'observacoes']
-            };
-            const columnIndexes = {};
-            Object.keys(aliases).forEach(fieldName => {
-                const matches = normalizedHeaders
-                    .map((header, index) => aliases[fieldName].includes(header) ? index : -1)
-                    .filter(index => index !== -1);
-                if (matches.length > 1) throw new Error(`O CSV possui mais de uma coluna para "${fieldName}".`);
-                if (matches.length === 1) columnIndexes[fieldName] = matches[0];
-            });
-
-            const requiredFields = ['timestamp', 'category', 'item'];
-            const missingFields = requiredFields.filter(fieldName => columnIndexes[fieldName] === undefined);
-            if (missingFields.length) {
-                throw new Error('Colunas obrigatórias ausentes: Data/Hora, Categoria e Item/Equipamento.');
-            }
-
-            const knownIndexes = new Set(Object.keys(columnIndexes).map(fieldName => columnIndexes[fieldName]));
-            const importedRecords = [];
-            const categoryNames = {
-                periferico: 'periferico',
-                perifericos: 'periferico',
-                headset: 'headset',
-                headsets: 'headset',
-                patrimonio: 'patrimonio'
-            };
-
-            rows.slice(1).forEach((values, index) => {
-                const rowNumber = index + 2;
-                if (values.length > headers.length) throw new Error(`O registro ${rowNumber} tem mais valores do que colunas.`);
-                while (values.length < headers.length) values.push('');
-
-                const getValue = fieldName => columnIndexes[fieldName] === undefined
-                    ? ''
-                    : String(values[columnIndexes[fieldName]] || '').trim();
-                const rawCategory = normalizeCSVHeader(getValue('category'));
-                let category = categoryNames[rawCategory];
-                if (!category && rawCategory.includes('headset')) category = 'headset';
-                if (!category && (rawCategory.includes('patrimonio') || rawCategory.includes('equipamento'))) category = 'patrimonio';
-                if (!category && rawCategory.includes('periferico')) category = 'periferico';
-                if (!category) throw new Error(`Categoria não reconhecida no registro ${rowNumber}.`);
-
-                const timestamp = getValue('timestamp');
-                const item = getValue('item');
-                if (!timestamp || !item) throw new Error(`Data/Hora e Item/Equipamento são obrigatórios no registro ${rowNumber}.`);
-
-                const rawQty = getValue('qty').replace(/\s/g, '');
-                const normalizedQty = /^\d{1,3}(?:\.\d{3})+(?:,\d+)?$/.test(rawQty)
-                    ? rawQty.replace(/\./g, '').replace(',', '.')
-                    : rawQty.replace(',', '.');
-                const qty = normalizedQty ? Number(normalizedQty) : 1;
-                if (!Number.isInteger(qty) || qty < 1) throw new Error(`Quantidade inválida no registro ${rowNumber}.`);
-
-                const sourceFields = {};
-                headers.forEach((header, columnIndex) => {
-                    if (!knownIndexes.has(columnIndex)) sourceFields[header] = values[columnIndex];
-                });
-
-                importedRecords.push({
-                    id: `csv-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-                    category,
-                    timestamp,
-                    item,
-                    person: getValue('person'),
-                    qty,
-                    extra: getValue('extra'),
-                    assetId: getValue('assetId'),
-                    supplier: getValue('supplier'),
-                    rotation: getValue('rotation') || 'saida do item',
-                    sourceFields
-                });
-            });
-
-            return importedRecords;
-        }
-
-        async function importFromCSV(event) {
-            const input = event.target;
-            const file = input.files && input.files[0];
-            if (!file) return;
-
-            try {
-                const importedRecords = parseCSVRecords(await file.text());
-                const previousRecords = records;
-                records = [...importedRecords, ...records];
-                try {
-                    saveRecords();
-                } catch (error) {
-                    records = previousRecords;
-                    throw error;
-                }
-                renderAll();
-                showToast(`${importedRecords.length} registro(s) importado(s) com sucesso.`);
-            } catch (error) {
-                showToast(`Importação não realizada: ${error.message}`, true);
-            } finally {
-                input.value = '';
-            }
-        }
-
-        // Export to CSV
+        // Exportar CSV
         function exportToCSV() {
             if (records.length === 0) {
                 showToast('Não há registros para exportar.', true);
@@ -1388,7 +1165,6 @@ window.onload = carregarItens;
             }
 
             const headers = ['Data/Hora', 'Categoria', 'Item/Equipamento', 'Patrimonio', 'Fornecedor', 'Rotacao', 'Quantidade', 'Pessoa/Recebedor', 'Extras'];
-            const extraHeaders = [...new Set(records.flatMap(record => Object.keys(record.sourceFields || {})))];
             const catNames = {
                 periferico: 'Perifericos',
                 headset: 'Saida de Headsets',
@@ -1400,18 +1176,19 @@ window.onload = carregarItens;
                 `"${catNames[r.category] || r.category}"`,
                 `"${(r.item || '').replace(/"/g, '""')}"`,
                 `"${(r.assetId || '').replace(/"/g, '""')}"`,
+                `"${(r.supplier || '').replace(/"/g, '""')}"`,
                 `"${(r.rotation || '').replace(/"/g, '""')}"`,
                 r.qty,
                 `"${(r.person || '').replace(/"/g, '""')}"`,
                 `"${(r.extra || '').replace(/"/g, '""')}"`
             ].join(';'));
 
-            const csvContent = '\uFEFF' + [[...headers, ...extraHeaders].map(escapeCSV).join(';'), ...rows].join('\r\n');
+            const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `controle_ti_unificado_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.download = `controle_ti_${new Date().toISOString().slice(0, 10)}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -1420,7 +1197,7 @@ window.onload = carregarItens;
             showToast('Arquivo CSV exportado!');
         }
 
-        // Toast Helper
+        // Toast de notificação
         let toastTimeout;
         function showToast(msg, isError = false) {
             const toast = document.getElementById('toast');
@@ -1430,7 +1207,7 @@ window.onload = carregarItens;
             toastMsg.textContent = msg;
             toastContent.classList.toggle('bg-red-700', isError);
             toastContent.classList.toggle('bg-slate-900', !isError);
-            toastIcon.classList.toggle('hidden', isError);
+            if (toastIcon) toastIcon.classList.toggle('hidden', isError);
 
             toast.classList.remove('translate-y-20', 'opacity-0');
             clearTimeout(toastTimeout);
@@ -1439,7 +1216,6 @@ window.onload = carregarItens;
             }, 3000);
         }
 
-        // Escape HTML helper
         function escapeHtml(str) {
             if (str === null || str === undefined) return '';
             return String(str)
